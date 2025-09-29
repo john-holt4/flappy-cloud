@@ -91,59 +91,135 @@ pub async fn main(mut req: Request, env: Env, _ctx: Context) -> Result<Response>
             let ai_result = ai::call_workers_ai(prompt, &env).await?;
             Response::from_json(&serde_json::json!({ "result": ai_result }))
         }
-        path if path.starts_with("/static/") => match path {
-            "/static/cf-logo.png" => {
-                let bytes = include_bytes!("../static/cf-logo.png");
-                Response::from_bytes(bytes.to_vec()).map(|mut resp| {
-                    resp.headers_mut().set("Content-Type", "image/png").ok();
-                    resp
-                })
+        path if path.starts_with("/static/") => {
+            let cache = Cache::default();
+            if let Some(resp) = cache.get(&req, false).await? {
+                return Ok(resp);
             }
-            "/static/favi/apple-touch-icon.png" => {
-                let bytes = include_bytes!("../static/favi/apple-touch-icon.png");
-                Response::from_bytes(bytes.to_vec()).map(|mut resp| {
-                    resp.headers_mut().set("Content-Type", "image/png").ok();
-                    resp
-                })
+            let resp = match path {
+                "/static/cf-logo.png" => {
+                    let bytes = include_bytes!("../static/cf-logo.png");
+                    Response::from_bytes(bytes.to_vec()).map(|mut resp| {
+                        resp.headers_mut().set("Content-Type", "image/png").ok();
+                        resp
+                    })?
+                }
+                "/static/favi/apple-touch-icon.png" => {
+                    let bytes = include_bytes!("../static/favi/apple-touch-icon.png");
+                    Response::from_bytes(bytes.to_vec()).map(|mut resp| {
+                        resp.headers_mut().set("Content-Type", "image/png").ok();
+                        resp
+                    })?
+                }
+                "/static/favi/favicon-32x32.png" => {
+                    let bytes = include_bytes!("../static/favi/favicon-32x32.png");
+                    Response::from_bytes(bytes.to_vec()).map(|mut resp| {
+                        resp.headers_mut().set("Content-Type", "image/png").ok();
+                        resp
+                    })?
+                }
+                "/static/favi/favicon-16x16.png" => {
+                    let bytes = include_bytes!("../static/favi/favicon-16x16.png");
+                    Response::from_bytes(bytes.to_vec()).map(|mut resp| {
+                        resp.headers_mut().set("Content-Type", "image/png").ok();
+                        resp
+                    })?
+                }
+                "/static/cloud.png" => {
+                    let bytes = include_bytes!("../static/cloud.png");
+                    Response::from_bytes(bytes.to_vec()).map(|mut resp| {
+                        resp.headers_mut().set("Content-Type", "image/png").ok();
+                        resp
+                    })?
+                }
+                "/static/game.js" => {
+                    let js = include_str!("../static/game.js").as_bytes().to_vec();
+                    Response::from_body(worker::ResponseBody::Body(js)).map(|mut resp| {
+                        resp.headers_mut()
+                            .set("Content-Type", "application/javascript")
+                            .ok();
+                        resp
+                    })?
+                }
+                "/static/styles.css" => {
+                    let css = include_str!("../static/styles.css").as_bytes().to_vec();
+                    Response::from_body(worker::ResponseBody::Body(css)).map(|mut resp| {
+                        resp.headers_mut().set("Content-Type", "text/css").ok();
+                        resp
+                    })?
+                }
+                "/static/index.html" => Response::from_html(include_str!("../static/index.html"))?,
+                _ => Response::error("Not found", 404)?,
+            };
+            match path {
+                "/static/cf-logo.png" => {
+                    let bytes = include_bytes!("../static/cf-logo.png");
+                    let cache_resp = Response::from_bytes(bytes.to_vec()).map(|mut r| {
+                        r.headers_mut().set("Content-Type", "image/png").ok();
+                        r
+                    })?;
+                    cache.put(&req, cache_resp).await?;
+                }
+                "/static/favi/apple-touch-icon.png" => {
+                    let bytes = include_bytes!("../static/favi/apple-touch-icon.png");
+                    let cache_resp = Response::from_bytes(bytes.to_vec()).map(|mut r| {
+                        r.headers_mut().set("Content-Type", "image/png").ok();
+                        r
+                    })?;
+                    cache.put(&req, cache_resp).await?;
+                }
+                "/static/favi/favicon-32x32.png" => {
+                    let bytes = include_bytes!("../static/favi/favicon-32x32.png");
+                    let cache_resp = Response::from_bytes(bytes.to_vec()).map(|mut r| {
+                        r.headers_mut().set("Content-Type", "image/png").ok();
+                        r
+                    })?;
+                    cache.put(&req, cache_resp).await?;
+                }
+                "/static/favi/favicon-16x16.png" => {
+                    let bytes = include_bytes!("../static/favi/favicon-16x16.png");
+                    let cache_resp = Response::from_bytes(bytes.to_vec()).map(|mut r| {
+                        r.headers_mut().set("Content-Type", "image/png").ok();
+                        r
+                    })?;
+                    cache.put(&req, cache_resp).await?;
+                }
+                "/static/cloud.png" => {
+                    let bytes = include_bytes!("../static/cloud.png");
+                    let cache_resp = Response::from_bytes(bytes.to_vec()).map(|mut r| {
+                        r.headers_mut().set("Content-Type", "image/png").ok();
+                        r
+                    })?;
+                    cache.put(&req, cache_resp).await?;
+                }
+                "/static/game.js" => {
+                    let js = include_str!("../static/game.js").as_bytes().to_vec();
+                    let cache_resp =
+                        Response::from_body(worker::ResponseBody::Body(js)).map(|mut r| {
+                            r.headers_mut()
+                                .set("Content-Type", "application/javascript")
+                                .ok();
+                            r
+                        })?;
+                    cache.put(&req, cache_resp).await?;
+                }
+                "/static/styles.css" => {
+                    let css = include_str!("../static/styles.css").as_bytes().to_vec();
+                    let cache_resp =
+                        Response::from_body(worker::ResponseBody::Body(css)).map(|mut r| {
+                            r.headers_mut().set("Content-Type", "text/css").ok();
+                            r
+                        })?;
+                    cache.put(&req, cache_resp).await?;
+                }
+                "/static/index.html" => {
+                    let cache_resp = Response::from_html(include_str!("../static/index.html"))?;
+                    cache.put(&req, cache_resp).await?;
+                }
+                _ => {}
             }
-            "/static/favi/favicon-32x32.png" => {
-                let bytes = include_bytes!("../static/favi/favicon-32x32.png");
-                Response::from_bytes(bytes.to_vec()).map(|mut resp| {
-                    resp.headers_mut().set("Content-Type", "image/png").ok();
-                    resp
-                })
-            }
-            "/static/favi/favicon-16x16.png" => {
-                let bytes = include_bytes!("../static/favi/favicon-16x16.png");
-                Response::from_bytes(bytes.to_vec()).map(|mut resp| {
-                    resp.headers_mut().set("Content-Type", "image/png").ok();
-                    resp
-                })
-            }
-            "/static/cloud.png" => {
-                let bytes = include_bytes!("../static/cloud.png");
-                Response::from_bytes(bytes.to_vec()).map(|mut resp| {
-                    resp.headers_mut().set("Content-Type", "image/png").ok();
-                    resp
-                })
-            }
-            "/static/game.js" => {
-                let js = include_str!("../static/game.js").as_bytes().to_vec();
-                Response::from_body(worker::ResponseBody::Body(js)).map(|mut resp| {
-                    resp.headers_mut().set("Content-Type", "application/javascript").ok();
-                    resp
-                })
-            }
-            "/static/styles.css" => {
-                let css = include_str!("../static/styles.css").as_bytes().to_vec();
-                Response::from_body(worker::ResponseBody::Body(css)).map(|mut resp| {
-                    resp.headers_mut().set("Content-Type", "text/css").ok();
-                    resp
-                })
-            }
-            "/static/index.html" => Response::from_html(include_str!("../static/index.html")),
-            _ => Response::error("Not found", 404),
-        },
+            Ok(resp)
+        }
         other => Response::error(format!("Not found: {}", other), 404),
     }
 }
