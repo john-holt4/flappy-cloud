@@ -222,7 +222,6 @@ function drawClouds(ctx) {
         showLeaderboard();
         return;
       }
-      score++;
       draw();
       requestAnimationFrame(update);
     }
@@ -266,7 +265,12 @@ function drawClouds(ctx) {
           lastFrameTime = null;
           return;
         }
-        score++;
+        if (!window._scoreTime) window._scoreTime = 0;
+        window._scoreTime += dt * 60;
+        if (window._scoreTime >= 1) {
+          score += Math.floor(window._scoreTime);
+          window._scoreTime -= Math.floor(window._scoreTime);
+        }
         draw();
         requestAnimationFrame(update);
       }
