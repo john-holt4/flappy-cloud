@@ -1,0 +1,261 @@
+/* Flappy Cloud Styles - cleaned up */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
+  width: 100vw;
+  min-height: 100vh;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  background: linear-gradient(to bottom, #FAAD3F 0%, #F48120 100%);
+  background-size: cover;
+  background-attachment: fixed;
+}
+
+body {
+  background: none;
+  color: #404041;
+  text-align: center;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#game {
+  background: linear-gradient(to bottom, #8fd3ff 0%, #b3e6ff 100%);
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  touch-action: manipulation;
+  display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: none;
+  margin: 0;
+  padding: 0;
+  z-index: 1;
+}
+
+#scoreOSD {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  padding: 0.4em 1.2em;
+  background: rgba(64, 64, 65, 0.45);
+  border-radius: 18px;
+  color: #fff;
+  font-size: 1.5em;
+  font-family: Segoe UI, Arial, sans-serif;
+  font-weight: bold;
+  box-shadow: 0 2px 8px #40404160;
+  z-index: 5;
+  text-shadow: 1px 1px 0 #404041;
+  pointer-events: none;
+  user-select: none;
+  display: none;
+}
+
+#startScreen {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: none;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 2em;
+  z-index: 10;
+  width: 100vw;
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#retroPanel {
+  background: rgba(64, 64, 65, 0.92);
+  border: 6px solid #FAAD3F;
+  border-radius: 18px;
+  box-shadow: 0 0 0 8px #404041, 0 8px 32px #404041bb;
+  padding: 2em 1em 1.5em 1em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  width: 90vw;
+  max-width: 420px;
+  max-height: calc(100vh - 40px);
+  margin-top: 20px;
+  margin-bottom: 20px;
+  overflow-y: auto;
+  font-size: 1em;
+  letter-spacing: 1.5px;
+  text-shadow: 2px 2px 0 #404041, 0 0 8px #404041aa;
+  box-sizing: border-box;
+  justify-content: center;
+}
+
+#gameTitle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #fff;
+  font-size: 1.5em;
+  margin-bottom: 1em;
+  letter-spacing: 2px;
+  text-shadow: 2px 2px 0 #17651c, 0 0 8px #404041aa;
+}
+
+.flappy-title {
+  margin-top: 0.5em;
+  display: block;
+  font-size: 1.1em;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: #FAAD3F;
+  text-shadow: 2px 2px 0 #404041, 0 0 8px #404041aa;
+}
+
+#nameForm {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5em;
+  margin-top: 1em;
+  width: 100%;
+  max-width: 340px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+#nameForm input, #nameForm button {
+  width: 100%;
+  height: 3em;
+  font-size: 1.1em;
+  font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
+  box-sizing: border-box;
+  border-radius: 8px;
+  margin: 0;
+}
+
+#nameForm input {
+  background: #404041;
+  border: 2px solid #FAAD3F;
+  color: #fff;
+  padding: 0 1em;
+  border-radius: 8px;
+}
+
+#nameForm button {
+  background: #F48120;
+  color: #fff;
+  border: 2px solid #FAAD3F;
+  cursor: pointer;
+  box-shadow: 0 2px 8px #404041a0;
+  text-shadow: 1px 1px 0 #404041;
+  display: block;
+  min-width: 0;
+  border-radius: 8px;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 0;
+}
+
+#restartBtn {
+  background: linear-gradient(to top, #FAAD3F 0%, #F48120 100%);
+  color: #fff;
+  border: 2px solid #FAAD3F;
+  text-shadow: 1px 1px 0 #404041;
+  cursor: pointer;
+  box-shadow: 0 2px 8px #404041a0;
+  border-radius: 8px;
+  min-width: 0;
+  padding: 0.5em 2em;
+  font-size: 1em;
+  margin-top: 1em;
+  margin-bottom: 0;
+  display: block;
+}
+
+#finalScore {
+  display: none;
+  font-size: 1em;
+  margin-top: 1em;
+}
+
+#leaderboard {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto 1em auto;
+  position: static;
+  background: none;
+  border-radius: 12px 12px 0 0;
+  display: none;
+  box-shadow: none;
+  font-size: 1em;
+  box-sizing: border-box;
+}
+
+#aiCommentary {
+  display: none;
+  font-size: 1em;
+  color: #fff;
+  padding: 1em 1em 1em 1em;
+  text-shadow: 2px 2px 0 #404041, 0 0 8px #404041aa;
+  letter-spacing: 1.5px;
+}
+
+#aiCommentaryButtons {
+  margin-top: 1em;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5em;
+  width: 100%;
+}
+
+.ai-btn {
+  background: linear-gradient(to top,#FAAD3F 0%,#F48120 100%);
+  color: #fff;
+  border: 2px solid #FAAD3F;
+  border-radius: 8px;
+  min-width: 70px;
+  padding: 0.5em 2em;
+  font-size: 1em;
+  display: block;
+  width: 100%;
+  font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
+  text-shadow: 1px 1px 0 #404041;
+  box-shadow: 0 2px 8px #404041a0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+@media (max-width: 600px) {
+  #retroPanel {
+    padding: 1em 0.5em 1em 0.5em;
+    font-size: 0.85em;
+    max-width: 98vw;
+  }
+  #nameForm input, #nameForm button {
+    font-size: 1em;
+    height: 2.4em;
+    border-radius: 6px;
+  }
+  #nameForm button {
+    min-width: 70px;
+    padding: 0 0.7em;
+  }
+  #gameTitle {
+    font-size: 1.1em;
+  }
+  #leaderboard {
+    font-size: 0.95em;
+  }
+}

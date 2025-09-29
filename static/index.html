@@ -1,0 +1,43 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudflare Flappy Cloud</title>
+    <meta name="theme-color" content="#F48120">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/favi/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favi/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favi/favicon-16x16.png">
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="scoreOSD"></div>
+    <div id="startScreen">
+      <div id="retroPanel">
+        <div id="gameTitle">
+          <img src="/static/cf-logo.png" alt="Cloudflare logo" style="width:180px;height:auto;display:inline-block;vertical-align:middle;margin-bottom:8px;" />
+          <span class="flappy-title">Flappy Cloud</span>
+        </div>
+        <span id="welcomeMsg">Enter your name</span>
+        <span id="gameOverMsg" style="display:none;font-size:2.2em;font-weight:900;letter-spacing:0.18em;text-shadow:4px 4px 0 #404041, 0 0 16px #404041aa;text-transform:uppercase;">GAME OVER</span>
+        <form id="nameForm" onsubmit="event.preventDefault(); startGame();">
+          <input id="name" placeholder="Your name" maxlength="12" required />
+          <button type="submit">Play</button>
+        </form>
+        <span id="finalScore"></span>
+        <div id="leaderboard"></div>
+        <button id="restartBtn" style="display:none">Play Again</button>
+        <div id="aiCommentary">
+          <div id="aiCommentaryText"></div>
+          <div id="aiCommentaryButtons">
+            <button id="aiPlayAgainBtn" class="ai-btn">Play Again</button>
+            <button id="aiLeaderboardBtn" class="ai-btn">Leaderboard</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="/static/game.js"></script>
+  </body>
+</html>

@@ -1,0 +1,15 @@
+[package]
+name = "cf_flappy_cloud"
+description = "A Cloudflare-powered Flappy Bird clone built with Rust Workers, Durable Objects, and Workers AI."
+repository = "https://github.com/john-holt4/flappy-cloud"
+license = "MIT"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+worker = "0.6.6"
+serde = { version = "1.0.226", features = ["derive"] }
+serde_json = "1.0.145"

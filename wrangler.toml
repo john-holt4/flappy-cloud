@@ -1,0 +1,19 @@
+name = "cf-flappy-cloud"
+main = "build/worker/shim.mjs"
+compatibility_date = "2025-03-07"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["ScoreBoard"]
+
+[durable_objects]
+bindings = [
+  { name = "SCORE_BOARD", class_name = "ScoreBoard" }
+]
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[build]
+command = "worker-build"

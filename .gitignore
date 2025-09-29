@@ -1,0 +1,18 @@
+# Ignore VS Code and GitHub config
+.github/
+.vscode/
+
+# Ignore Wrangler build output
+.wrangler/
+build/
+
+# Ignore Node.js dependencies and lock files
+node_modules/
+package-lock.json
+
+# Ignore Rust build output and lock files
+target/
+Cargo.lock
+
+# Ignore local development environment variables
+.dev.vars
