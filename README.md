@@ -2,6 +2,8 @@
 
 A Cloudflare-powered Flappy Bird clone built with Rust Workers, Durable Objects, and Workers AI.
 
+Demo - https://cf-flappy-cloud.nfr-ige-ptcatur.workers.dev/
+
 ---
 
 ## How to Play
