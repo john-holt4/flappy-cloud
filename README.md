@@ -22,6 +22,8 @@ Demo - https://cf-flappy-cloud.nfr-ige-ptcatur.workers.dev/
 - **Workers AI:** Game-over commentary is generated using Cloudflare Workers AI, providing fun, cloud-themed feedback.
 - **Static Assets:** All game assets (HTML, CSS, JS, images) are served from the Worker.
 - **Session-based Anti-Cheat:** Each run gets a server-issued session; scores are only accepted if they match server-measured elapsed play time.
+- **Dynamic Difficulty & Gap Scaling:** Pipe gaps scale with viewport height (capped) so shrinking the window no longer makes the game trivial.
+- **Viewport Integrity Enforcement:** Viewport dimensions & devicePixelRatio at session start are captured; significant shrink or zoom-out voids the run (client-side) and is rejected server-side.
 
 ## Cloudflare Services Used
 
@@ -84,23 +86,43 @@ npx wrangler deploy
 - **Game Frontend:** Served from `/static/index.html`, `/static/styles.css`, `/static/game.js`, and image assets.
 - **Leaderboard:** Scores are posted to `/api/score` (after a validated session) and retrieved from `/api/leaderboard` using Durable Objects.
 - **AI Commentary:** On game over, a prompt is sent to Workers AI via `/api/ai` for a witty cloud-themed comment.
-- **Anti-Cheat Flow:** The client requests `/api/start` right when gameplay actually begins (after the countdown). The server records a `start_ts` in a Durable Object session. When the game ends, the client POSTs `{ name, score, session_id }` to `/api/score`. The server:
-  1. Looks up the session.
-  2. Computes elapsed seconds.
-  3. Converts expected frames ≈ `elapsed * 60` (game logic awards roughly 1 point per frame-equivalent unit).
-  4. Allows a tolerance of 3 seconds worth of frames (180 frames) to account for timing variance.
-  5. Rejects and returns HTTP 400 if the score is outside tolerance or session reused.
-  6. Stores score and invalidates the session on success.
+- **Anti-Cheat Flow (Enhanced):**
+  1. After the countdown, the client captures `viewport = { w, h, dpr }` and starts a session via `POST /api/start` with that JSON body (optional legacy clients can still send empty body).
+  2. The Durable Object stores `start_ts` plus the viewport metadata.
+  3. During play, if the user shrinks the window or zooms so width/height or DPR drop below 85% of the starting values, the run is voided client-side (score will not submit).
+  4. On game over, the client sends `POST /api/score` with `{ name, score, session_id, viewport_w, viewport_h, dpr }`.
+  5. Server validates:
+     - Session exists & not reused.
+     - Score matches elapsed time within ±3 seconds worth of frames.
+     - (If viewport was recorded) Current width, height, and DPR have not shrunk by >15%.
+  6. Accepts and stores top scores (truncates to 100) or returns a 400 with rejection details.
 
-This prevents manual POSTs with inflated scores unless the attacker can also simulate realistic timing.
+### Dynamic Gap Scaling
+Previously a fixed pixel pipe gap made the game much easier if the user reduced viewport height or zoomed in (less vertical travel needed). The gap is now computed as:
+
+```
+effectiveHeight = min(actualCanvasHeight, 900)
+basePct = 220 / 900
+gap = max(minPipeGap, (effectiveHeight * basePct) - level * 12)
+```
+
+This keeps difficulty roughly consistent across devices while still allowing play on smaller screens.
+
+### Viewport Integrity
+The initial viewport acts as a baseline. A run is invalidated if any of these shrink beyond 15% of their initial value:
+- Width
+- Height
+- devicePixelRatio
+
+This neutralizes exploits that relied on shrinking / zooming after starting to inflate performance.
 
 ### API Endpoints
 
 | Method | Path              | Description |
 |--------|-------------------|-------------|
 | GET    | `/`               | Game HTML |
-| POST   | `/api/start`      | Create a gameplay session `{ session_id }` |
-| POST   | `/api/score`      | Submit final score `{ name, score, session_id }` |
+| POST   | `/api/start`      | Create a gameplay session (optional body: `{ w, h, dpr }`) -> `{ session_id }` |
+| POST   | `/api/score`      | Submit final score `{ name, score, session_id, viewport_w, viewport_h, dpr }` |
 | GET    | `/api/leaderboard`| Top scores (array of `[name, score]`) |
 | POST   | `/api/ai`         | AI commentary `{ prompt }` -> `{ result }` |
 
@@ -120,7 +142,9 @@ curl https://<your-worker-domain>/api/leaderboard
 ```
 
 ### Score Rejection Responses
-If invalid, server returns `400` with JSON:
+If invalid, server returns `400` with JSON. Examples:
+
+Score/time mismatch:
 ```json
 {
   "accepted": false,
@@ -132,8 +156,20 @@ If invalid, server returns `400` with JSON:
 }
 ```
 
-### Adjusting Tolerance
-If you observe legitimate rejections for long sessions, you can modify the tolerance logic (currently 3 seconds worth of frames) in `src/lib.rs` where `tolerance_seconds` is defined.
+Viewport shrink / zoom detection:
+```json
+{
+  "accepted": false,
+  "reason": "viewport shrink / zoom detected",
+  "viewport": {"vw": 640, "vh": 420, "dpr": 1}
+}
+```
+
+### Adjusting Tolerance & Thresholds
+Modify in `src/lib.rs`:
+- `tolerance_seconds` (default 3) for timing tolerance.
+- `SHRINK_THRESHOLD` (default 0.85) for viewport integrity.
+Client-side mid-run invalidation uses the same 0.85 constant (see `static/game.js`).
 
 ## File Structure
 

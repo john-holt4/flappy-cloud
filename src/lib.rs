@@ -21,6 +21,12 @@ struct ScoreEntry {
 struct SessionInfo {
     start_ts: f64,
     used: bool,
+    #[serde(default)]
+    start_w: Option<u32>,
+    #[serde(default)]
+    start_h: Option<u32>,
+    #[serde(default)]
+    dpr: Option<f64>,
 }
 
 impl DurableObject for ScoreBoard {
@@ -32,6 +38,14 @@ impl DurableObject for ScoreBoard {
         let url = req.url()?;
         match (req.method(), url.path()) {
             (Method::Post, "/start") => {
+                let mut start_w: Option<u32> = None;
+                let mut start_h: Option<u32> = None;
+                let mut dpr: Option<f64> = None;
+                if let Ok(json) = req.json::<serde_json::Value>().await {
+                    start_w = json.get("w").and_then(|v| v.as_u64()).map(|v| v as u32);
+                    start_h = json.get("h").and_then(|v| v.as_u64()).map(|v| v as u32);
+                    dpr = json.get("dpr").and_then(|v| v.as_f64());
+                }
                 let session_id = format!(
                     "sess_{}_{}",
                     Date::now().as_millis(),
@@ -40,6 +54,9 @@ impl DurableObject for ScoreBoard {
                 let info = SessionInfo {
                     start_ts: Date::now().as_millis() as f64,
                     used: false,
+                    start_w,
+                    start_h,
+                    dpr,
                 };
                 self.state
                     .storage()
@@ -80,6 +97,36 @@ impl DurableObject for ScoreBoard {
                     });
                     let resp = Response::from_json(&body)?.with_status(400);
                     return Ok(resp);
+                }
+                let vw = data["viewport_w"].as_u64().unwrap_or(0) as u32;
+                let vh = data["viewport_h"].as_u64().unwrap_or(0) as u32;
+                let dpr_now = data["dpr"].as_f64().unwrap_or(1.0);
+                const SHRINK_THRESHOLD: f64 = 0.85; // 15% shrink triggers rejection
+                let mut viewport_ok = true;
+                let mut viewport_reason: Option<String> = None;
+                if let (Some(sw), Some(sh)) = (session_info.start_w, session_info.start_h) {
+                    if vw > 0
+                        && vh > 0
+                        && ((vw as f64) < sw as f64 * SHRINK_THRESHOLD
+                            || (vh as f64) < sh as f64 * SHRINK_THRESHOLD)
+                    {
+                        viewport_ok = false;
+                        viewport_reason = Some("viewport shrink / zoom detected".into());
+                    }
+                    if let Some(start_dpr) = session_info.dpr {
+                        if dpr_now < start_dpr * SHRINK_THRESHOLD {
+                            viewport_ok = false;
+                            viewport_reason = Some("devicePixelRatio shrink detected".into());
+                        }
+                    }
+                }
+                if !viewport_ok {
+                    let body = serde_json::json!({
+                        "accepted": false,
+                        "reason": viewport_reason.unwrap_or_else(|| "viewport violation".into()),
+                        "viewport": {"vw": vw, "vh": vh, "dpr": dpr_now},
+                    });
+                    return Ok(Response::from_json(&body)?.with_status(400));
                 }
                 session_info.used = true;
                 self.state.storage().put(&key, &session_info).await?;
@@ -136,12 +183,22 @@ pub async fn main(mut req: Request, env: Env, _ctx: Context) -> Result<Response>
             stub.fetch_with_request(do_req).await
         }
         "/api/start" => {
+            let body_text = req.text().await.unwrap_or_default();
             let ns = env.durable_object("SCORE_BOARD")?;
             let id = ns.id_from_name("global")?;
             let stub = id.get_stub()?;
             let mut init = RequestInit::new();
             init.with_method(Method::Post);
+            if !body_text.is_empty() {
+                init.with_body(Some(body_text.clone().into()));
+            }
             let do_req = Request::new_with_init("http://internal/start", &init)?;
+            if !body_text.is_empty() {
+                do_req
+                    .headers()
+                    .set("Content-Type", "application/json")
+                    .ok();
+            }
             stub.fetch_with_request(do_req).await
         }
         "/api/leaderboard" => {

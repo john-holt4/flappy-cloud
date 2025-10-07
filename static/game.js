@@ -28,10 +28,12 @@ let y = canvas.height / 2,
   running = false,
   started = false,
   playerName = '',
-  sessionId = null; // server-issued session for anti-cheat
+  sessionId = null;
 
 const birdX = canvas.width / 4;
-const startGap = 220;
+const BASE_HEIGHT = 900;
+const BASE_START_GAP = 220;
+const startGap = BASE_START_GAP;
 const minPipeGap = 80;
 const startPipeDistance = 420;
 const minPipeDistance = 90;
@@ -46,7 +48,11 @@ function getDifficultyLevel() {
   return Math.floor(score / 500);
 }
 function getCurrentGap() {
-  return Math.max(minPipeGap, startGap - getDifficultyLevel() * 12);
+  const effectiveH = Math.min(canvas.height, BASE_HEIGHT);
+  const basePct = BASE_START_GAP / BASE_HEIGHT;
+  const level = getDifficultyLevel();
+  const raw = (effectiveH * basePct) - level * 12;
+  return Math.max(minPipeGap, raw);
 }
 function getCurrentDistance() {
   return Math.max(minPipeDistance, startPipeDistance - getDifficultyLevel() * 20);
@@ -62,21 +68,20 @@ function getCurrentBirdSpeed() {
 }
 function resetPipes() {
   pipes = [];
-  let dist = getCurrentDistance();
-  let gap = getCurrentGap();
-  let level = getDifficultyLevel();
-  let numPipes = Math.ceil(canvas.width / dist) + 2;
-  let firstPipeX = birdX + 340;
+  const dist = getCurrentDistance();
+  const gapValue = getCurrentGap();
+  const level = getDifficultyLevel();
+  const numPipes = Math.ceil(canvas.width / dist) + 2;
+  const firstPipeX = birdX + 340;
   let lastGapY = null;
-  let maxDeltaY = window.innerWidth > 600 ? 440 : canvas.height;
+  const maxDeltaY = window.innerWidth > 600 ? 440 : canvas.height;
   for (let i = 0; i < numPipes; i++) {
-    let x = firstPipeX + i * dist;
+    const x = firstPipeX + i * dist;
     let gapY;
     if (i === 0) {
       gapY = canvas.height / 2;
     } else {
-      let minY = 80,
-        maxY = canvas.height - 80;
+      const minY = 80, maxY = canvas.height - 80;
       let tryCount = 0;
       do {
         gapY = minY + Math.random() * (maxY - minY);
@@ -89,7 +94,7 @@ function resetPipes() {
       );
     }
     lastGapY = gapY;
-    pipes.push({ x, gapY, gap, dist, level });
+    pipes.push({ x, gapY, gap: gapValue, dist, level });
   }
 }
 
@@ -200,9 +205,9 @@ function drawClouds(ctx) {
       
       if (pipes.length && pipes[0].x < -pipeWidth) {
         pipes.shift();
-        let level = getDifficultyLevel();
-        let dist = Math.max(minPipeDistance, startPipeDistance - level * 20);
-        let gap = Math.max(minPipeGap, startGap - level * 12);
+  let level = getDifficultyLevel();
+  let dist = getCurrentDistance();
+  let gap = getCurrentGap();
         let lastX = pipes[pipes.length-1].x;
         let lastGapY = pipes[pipes.length-1].gapY;
         let minY = 80, maxY = canvas.height - 80;
@@ -244,8 +249,8 @@ function drawClouds(ctx) {
         if (pipes.length && pipes[0].x < -pipeWidth) {
           pipes.shift();
           let level = getDifficultyLevel();
-          let dist = Math.max(minPipeDistance, startPipeDistance - level * 20);
-          let gap = Math.max(minPipeGap, startGap - level * 12);
+          let dist = getCurrentDistance();
+          let gap = getCurrentGap();
           let lastX = pipes[pipes.length-1].x;
           let lastGapY = pipes[pipes.length-1].gapY;
           let minY = 80, maxY = canvas.height - 80;
@@ -275,9 +280,16 @@ function drawClouds(ctx) {
         draw();
         requestAnimationFrame(update);
       }
+    let startViewport = null;
     async function startGame() {
       playerName = document.getElementById('name').value.trim() || 'anon';
       y = canvas.height/2; v = 0; score = 0; running = false; started = true;
+      window._voidedRun = false;
+      startViewport = {
+        w: window.innerWidth,
+        h: window.innerHeight,
+        dpr: window.devicePixelRatio || 1
+      };
       resetPipes();
       document.getElementById('startScreen').style.display = 'none';
       document.getElementById('restartBtn').style.display = 'none';
@@ -332,7 +344,11 @@ function drawClouds(ctx) {
           // create session right when actual gameplay starts (after countdown)
           (async () => {
             try {
-              const resp = await fetch('/api/start', { method: 'POST' });
+              const resp = await fetch('/api/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(startViewport || {})
+              });
               const js = await resp.json();
               sessionId = js.session_id;
             } catch (e) {
@@ -380,7 +396,15 @@ function drawClouds(ctx) {
     
     async function submitScore() {
       if (!playerName) return;
-      const payload = { name: playerName, score, session_id: sessionId };
+      if (window._voidedRun) return;
+      const payload = {
+        name: playerName,
+        score,
+        session_id: sessionId,
+        viewport_w: window.innerWidth,
+        viewport_h: window.innerHeight,
+        dpr: window.devicePixelRatio || 1
+      };
       try {
         const resp = await fetch('/api/score', {
           method: 'POST',
@@ -439,6 +463,25 @@ function drawClouds(ctx) {
         }
       }
     }
+
+    window.addEventListener('resize', () => {
+      if (!running || !startViewport) return;
+      const SHRINK_THRESHOLD = 0.85;
+      const wOk = window.innerWidth >= startViewport.w * SHRINK_THRESHOLD;
+      const hOk = window.innerHeight >= startViewport.h * SHRINK_THRESHOLD;
+      const dprCurrent = window.devicePixelRatio || 1;
+      const dprOk = dprCurrent >= (startViewport.dpr || 1) * SHRINK_THRESHOLD;
+      if (!(wOk && hOk && dprOk)) {
+        running = false;
+        started = false;
+        window._voidedRun = true;
+        const msg = document.getElementById('gameOverMsg');
+        if (msg) msg.textContent = 'Run voided (resize/zoom detected)';
+        document.getElementById('finalScore').style.display = 'none';
+        document.getElementById('restartBtn').style.display = 'inline-block';
+        document.getElementById('startScreen').style.display = 'flex';
+      }
+    });
     
     function vibratePhone() {
       if (window.navigator && window.navigator.vibrate) {
