@@ -1,3 +1,4 @@
+use js_sys::Math;
 use serde::{Deserialize, Serialize};
 use worker::*;
 mod ai;
@@ -16,6 +17,12 @@ struct ScoreEntry {
     ts: f64,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+struct SessionInfo {
+    start_ts: f64,
+    used: bool,
+}
+
 impl DurableObject for ScoreBoard {
     fn new(state: State, env: Env) -> Self {
         Self { state, env }
@@ -24,11 +31,61 @@ impl DurableObject for ScoreBoard {
     async fn fetch(&self, mut req: Request) -> Result<Response> {
         let url = req.url()?;
         match (req.method(), url.path()) {
+            (Method::Post, "/start") => {
+                let session_id = format!(
+                    "sess_{}_{}",
+                    Date::now().as_millis(),
+                    (Math::random() * 1e12_f64) as u64
+                );
+                let info = SessionInfo {
+                    start_ts: Date::now().as_millis() as f64,
+                    used: false,
+                };
+                self.state
+                    .storage()
+                    .put(&format!("session:{}", session_id), &info)
+                    .await?;
+                Response::from_json(&serde_json::json!({"session_id": session_id}))
+            }
             (Method::Post, "/add") => {
                 let data: serde_json::Value = req.json().await?;
                 let name = data["name"].as_str().unwrap_or("anon").to_string();
                 let score = data["score"].as_i64().unwrap_or(0);
-                let ts = Date::now().as_millis() as f64;
+                let session_id = data["session_id"].as_str().unwrap_or("");
+                if session_id.is_empty() {
+                    return Response::error("missing session_id", 400);
+                }
+                let key = format!("session:{}", session_id);
+                let session: Option<SessionInfo> = self.state.storage().get(&key).await?;
+                if session.is_none() {
+                    return Response::error("invalid session", 400);
+                }
+                let mut session_info = session.unwrap();
+                if session_info.used {
+                    return Response::error("session already used", 400);
+                }
+                let now_ms = Date::now().as_millis() as f64;
+                let elapsed_sec = (now_ms - session_info.start_ts) / 1000.0;
+                let expected_score = elapsed_sec * 60.0;
+                let tolerance_seconds = 3.0;
+                let tolerance_frames = tolerance_seconds * 60.0;
+                if (score as f64 - expected_score).abs() > tolerance_frames {
+                    let body = serde_json::json!({
+                        "accepted": false,
+                        "reason": "score/time mismatch",
+                        "elapsed_sec": elapsed_sec,
+                        "expected_score": expected_score as i64,
+                        "tolerance_frames": tolerance_frames as i64,
+                        "actual_score": score
+                    });
+                    let resp = Response::from_json(&body)?.with_status(400);
+                    return Ok(resp);
+                }
+                // Mark session as used
+                session_info.used = true;
+                self.state.storage().put(&key, &session_info).await?;
+
+                let ts = now_ms;
                 let entry = ScoreEntry { name, score, ts };
                 let mut scores: Vec<ScoreEntry> = self
                     .state
@@ -42,7 +99,7 @@ impl DurableObject for ScoreBoard {
                     scores.truncate(100);
                 }
                 self.state.storage().put("scores", &scores).await?;
-                Response::ok("stored")
+                Response::from_json(&serde_json::json!({"accepted": true}))
             }
             (Method::Get, "/top") => {
                 let scores: Vec<ScoreEntry> = self
@@ -77,6 +134,16 @@ pub async fn main(mut req: Request, env: Env, _ctx: Context) -> Result<Response>
             init.with_method(Method::Post);
             init.with_body(Some(serde_json::to_string(&data)?.into()));
             let do_req = Request::new_with_init("http://internal/add", &init)?;
+            stub.fetch_with_request(do_req).await
+        }
+        "/api/start" => {
+            // create a session on the durable object
+            let ns = env.durable_object("SCORE_BOARD")?;
+            let id = ns.id_from_name("global")?;
+            let stub = id.get_stub()?;
+            let mut init = RequestInit::new();
+            init.with_method(Method::Post);
+            let do_req = Request::new_with_init("http://internal/start", &init)?;
             stub.fetch_with_request(do_req).await
         }
         "/api/leaderboard" => {

@@ -27,7 +27,8 @@ let y = canvas.height / 2,
   score = 0,
   running = false,
   started = false,
-  playerName = '';
+  playerName = '',
+  sessionId = null; // server-issued session for anti-cheat
 
 const birdX = canvas.width / 4;
 const startGap = 220;
@@ -274,7 +275,7 @@ function drawClouds(ctx) {
         draw();
         requestAnimationFrame(update);
       }
-    function startGame() {
+    async function startGame() {
       playerName = document.getElementById('name').value.trim() || 'anon';
       y = canvas.height/2; v = 0; score = 0; running = false; started = true;
       resetPipes();
@@ -288,7 +289,7 @@ function drawClouds(ctx) {
       lastFrameTime = null;
 
     
-    function showCountdownAndStart() {
+  function showCountdownAndStart() {
       let countdownDiv = document.createElement('div');
       countdownDiv.id = 'countdownOverlay';
       countdownDiv.style.position = 'fixed';
@@ -328,8 +329,19 @@ function drawClouds(ctx) {
           clearInterval(timer);
           countdownActive = false;
           document.body.removeChild(countdownDiv);
-          running = true;
-          requestAnimationFrame(update);
+          // create session right when actual gameplay starts (after countdown)
+          (async () => {
+            try {
+              const resp = await fetch('/api/start', { method: 'POST' });
+              const js = await resp.json();
+              sessionId = js.session_id;
+            } catch (e) {
+              console.error('Failed to create session', e);
+              sessionId = null;
+            }
+            running = true;
+            requestAnimationFrame(update);
+          })();
         }
       }, 1000);
     }
@@ -368,11 +380,20 @@ function drawClouds(ctx) {
     
     async function submitScore() {
       if (!playerName) return;
-      await fetch('/api/score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: playerName, score })
-      });
+      const payload = { name: playerName, score, session_id: sessionId };
+      try {
+        const resp = await fetch('/api/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) {
+          const text = await resp.text();
+          console.warn('Score rejected', text);
+        }
+      } catch (e) {
+        console.error('Score submit error', e);
+      }
     }
     async function showLeaderboard() {
       const res = await fetch('/api/leaderboard');
