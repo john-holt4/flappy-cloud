@@ -81,7 +81,6 @@ impl DurableObject for ScoreBoard {
                     let resp = Response::from_json(&body)?.with_status(400);
                     return Ok(resp);
                 }
-                // Mark session as used
                 session_info.used = true;
                 self.state.storage().put(&key, &session_info).await?;
 
@@ -137,7 +136,6 @@ pub async fn main(mut req: Request, env: Env, _ctx: Context) -> Result<Response>
             stub.fetch_with_request(do_req).await
         }
         "/api/start" => {
-            // create a session on the durable object
             let ns = env.durable_object("SCORE_BOARD")?;
             let id = ns.id_from_name("global")?;
             let stub = id.get_stub()?;
@@ -205,6 +203,9 @@ pub async fn main(mut req: Request, env: Env, _ctx: Context) -> Result<Response>
                         resp.headers_mut()
                             .set("Content-Type", "application/javascript")
                             .ok();
+                        resp.headers_mut()
+                            .set("Cache-Control", "no-store, max-age=0")
+                            .ok();
                         resp
                     })?
                 }
@@ -259,17 +260,7 @@ pub async fn main(mut req: Request, env: Env, _ctx: Context) -> Result<Response>
                     })?;
                     cache.put(&req, cache_resp).await?;
                 }
-                "/static/game.js" => {
-                    let js = include_str!("../static/game.js").as_bytes().to_vec();
-                    let cache_resp =
-                        Response::from_body(worker::ResponseBody::Body(js)).map(|mut r| {
-                            r.headers_mut()
-                                .set("Content-Type", "application/javascript")
-                                .ok();
-                            r
-                        })?;
-                    cache.put(&req, cache_resp).await?;
-                }
+                "/static/game.js" => {}
                 "/static/styles.css" => {
                     let css = include_str!("../static/styles.css").as_bytes().to_vec();
                     let cache_resp =
@@ -279,10 +270,7 @@ pub async fn main(mut req: Request, env: Env, _ctx: Context) -> Result<Response>
                         })?;
                     cache.put(&req, cache_resp).await?;
                 }
-                "/static/index.html" => {
-                    let cache_resp = Response::from_html(include_str!("../static/index.html"))?;
-                    cache.put(&req, cache_resp).await?;
-                }
+                "/static/index.html" => {}
                 _ => {}
             }
             Ok(resp)
